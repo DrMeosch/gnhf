@@ -81,7 +81,9 @@ export function extractLastJsonObject(
         // Keep scanning earlier objects when a candidate is not valid JSON.
       }
     }
-    cursor = text.lastIndexOf("{", cursor - 1);
+    // lastIndexOf clamps a negative fromIndex to 0, so it would find the `{`
+    // at index 0 again forever. Stop explicitly once index 0 has been tried.
+    cursor = cursor === 0 ? -1 : text.lastIndexOf("{", cursor - 1);
   }
   return null;
 }

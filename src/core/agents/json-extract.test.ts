@@ -77,6 +77,22 @@ describe("extractLastJsonObject", () => {
       '{"success":true,"summary":"mentions {}","key_changes_made":[],"key_learnings":[]}',
     );
   });
+
+  // Regression: String#lastIndexOf clamps a negative fromIndex to 0, so
+  // scanning backwards from a `{` at index 0 used to find index 0 again and
+  // spin forever, hanging the whole process.
+  it("returns null when the only candidate is an unterminated object at index 0", () => {
+    expect(extractLastJsonObject('{"a":["x"],"}')).toBeNull();
+  });
+
+  it("returns null when an object at index 0 is the last candidate and is rejected", () => {
+    expect(extractLastJsonObject('{"a":1} trailing {', () => false)).toBeNull();
+    expect(extractLastJsonObject('{"a":1} trailing', () => false)).toBeNull();
+  });
+
+  it("still scans earlier candidates after index 0 is exhausted", () => {
+    expect(extractLastJsonObject('{"a":1} then {"b":')).toBe('{"a":1}');
+  });
 });
 
 describe("parseAgentJson", () => {
@@ -129,6 +145,19 @@ describe("parseAgentJson", () => {
 
   it("returns null for unparseable text", () => {
     expect(parseAgentJson("just prose, no json here")).toBeNull();
+  });
+
+  it("returns null for a truncated object that starts at index 0", () => {
+    expect(parseAgentJson('{"a":["x"],"}')).toBeNull();
+    expect(
+      parseAgentJson(
+        '{"success":true,"summary":"s","key_changes_made":["c"],"key_learnings":["l"],"}',
+      ),
+    ).toBeNull();
+  });
+
+  it("returns null when a nested object parses but the outer object is truncated", () => {
+    expect(parseAgentJson('{"a":{"b":1},"}', () => false)).toBeNull();
   });
 
   it("returns null for empty input", () => {
