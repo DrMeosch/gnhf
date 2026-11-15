@@ -409,6 +409,35 @@ describe("PiAgent", () => {
     await expect(promise).rejects.toThrow("Failed to parse pi output");
   });
 
+  it('rejects a final answer truncated to `],"}` instead of hanging', async () => {
+    const proc = createMockProcess();
+    mockSpawn.mockReturnValue(proc);
+    const agent = new PiAgent();
+
+    const promise = agent.run("test prompt", "/work/dir");
+    const truncated =
+      '{"success":true,"summary":"s","key_changes_made":["c"],"key_learnings":["l"],"}';
+    emitJson(proc, {
+      type: "message_update",
+      assistantMessageEvent: {
+        type: "text_end",
+        contentIndex: 1,
+        content: truncated,
+      },
+    });
+    emitJson(proc, {
+      type: "message_end",
+      message: {
+        role: "assistant",
+        content: [{ type: "text", text: truncated }],
+        stopReason: "stop",
+      },
+    });
+    proc.emit("close", 0);
+
+    await expect(promise).rejects.toThrow("Failed to parse pi output");
+  });
+
   it("recovers JSON that follows a prose summary", async () => {
     const proc = createMockProcess();
     mockSpawn.mockReturnValue(proc);
